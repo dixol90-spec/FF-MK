@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalkulačka čištění</title>
+</head>
+<body>
+
+
+<div id="kalkulacka">
+  <h2>Kalkulačka čištění</h2>
+
+  <div class="cenik-switch">
+    <button onclick="setCenik('FF')" id="btnFF" class="active">FF</button>
+    <button onclick="setCenik('MK')" id="btnMK">MK</button>
+  </div>
+
+  <div id="services"></div>
+
+<div id="summary" style="display:none;">
+
+    <div class="summary-header">
+        <h3>Rozpis položek</h3>
+        <button onclick="copySummary()" class="copy-top">
+            Zkopírovat
+        </button>
+    </div>
+
+    <div id="items"></div>
+    <hr>
+<div id="totals"></div>
+<div class="action-buttons">
+    <button onclick="resetAll()" class="reset">
+        Vymazat vše
+    </button>
+
+</div>
+  </div>
+</div>
+
+<style>
+#kalkulacka { max-width:650px; margin:auto; font-family:Arial; }
+.cenik-switch button { padding:8px 16px; margin:5px; border:none; cursor:pointer; background:#eee; }
+.cenik-switch .active { background:#007aff; color:white; }
+.service { border-bottom:1px solid #ddd; padding:10px 0; }
+.service-header { display:flex; justify-content:space-between; align-items:center; }
+.qty-controls button { width:28px; height:28px; }
+.red { color:red; font-weight:bold; }
+.reset { background:red; color:white; padding:8px 15px; border:none; margin-top:10px; }
+.toggle-row { margin-top:5px; }
+input[type=number]{ width:60px; text-align:center; font-size:16px; }
+/* Skrytí šipek u number input */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}
+.summary-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.copy-top{
+    background:#007aff;
+    color:white;
+    border:none;
+    padding:6px 12px;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:14px;
+}
+
+</style>
+
+<script>
+let cenik = "FF";
+const minimalniCena = 1999;
+
+function formatPrice(value){
+    return new Intl.NumberFormat("cs-CZ").format(value);
+}
+
+
+const servicesData = {
+
+FF: [
+{name:"Koberec", mokre:0, klepac:0, impregnace:35, nano:399},
+{name:"Židle (sedák)", mokre:100, klepac:50, impregnace:50, nano:200},
+{name:"Židle s opěrkou", mokre:150, klepac:80, impregnace:80, nano:250},
+{name:"Celočalouněná židle", mokre:250, klepac:150, impregnace:150, nano:300},
+{name:"Kancelářská židle", mokre:320, klepac:150, impregnace:150, nano:400},
+{name:"Křeslo jídelní - malé", mokre:400, klepac:200, impregnace:200, nano:400},
+{name:"Křeslo", mokre:650, klepac:350, impregnace:250, nano:800},
+{name:"Malý taburet", mokre:300, klepac:150, impregnace:100, nano:200},
+{name:"Velký taburet", mokre:550, klepac:300, impregnace:250, nano:450},
+{name:"2místná sedačka", mokre:850, klepac:460, impregnace:460, nano:1000},
+{name:"3místná sedačka", mokre:1050, klepac:600, impregnace:600, nano:1500},
+{name:"4místná sedačka", mokre:1250, klepac:740, impregnace:740, nano:2000},
+{name:"5místná sedačka", mokre:1450, klepac:880, impregnace:880, nano:2500},
+{name:"6místná sedačka", mokre:1650, klepac:1020, impregnace:1020, nano:3000},
+{name:"7místná sedačka", mokre:1850, klepac:1160, impregnace:1160, nano:3500},
+{name:"8místná sedačka", mokre:2050, klepac:1280, impregnace:1280, nano:4000},
+{name:"Rozložení sedačky", mokre:300, klepac:200, impregnace:150, nano:700},
+{name:"Polštář malý", mokre:100, klepac:50, impregnace:70, nano:250},
+{name:"Polštář velký", mokre:150, klepac:70, impregnace:100, nano:350},
+{name:"Matrace 1 místo", mokre:400, klepac:230, impregnace:230, nano:800},
+{name:"Čelo postele bez rámu", mokre:700, klepac:350, impregnace:400, nano:900},
+{name:"Čelo postele s rámem", mokre:900, klepac:500, impregnace:650, nano:1400}
+],
+
+MK: [
+{name:"Koberec", mokre:0, klepac:0, impregnace:0, nano:0},
+{name:"Židle (sedák)", mokre:139, klepac:0, impregnace:99, nano:199},
+{name:"Židle s opěrkou", mokre:189, klepac:0, impregnace:129, nano:249},
+{name:"Celočalouněná židle", mokre:299, klepac:0, impregnace:179, nano:349},
+{name:"Kancelářská židle", mokre:349, klepac:0, impregnace:199, nano:399},
+{name:"Křeslo jídelní - malé", mokre:449, klepac:0, impregnace:299, nano:599},
+{name:"Křeslo", mokre:699, klepac:0, impregnace:399, nano:799},
+{name:"Malý taburet", mokre:349, klepac:0, impregnace:129, nano:249},
+{name:"Velký taburet", mokre:649, klepac:0, impregnace:349, nano:699},
+{name:"2místná sedačka", mokre:999, klepac:0, impregnace:499, nano:999},
+{name:"3místná sedačka", mokre:1299, klepac:0, impregnace:749, nano:1499},
+{name:"4místná sedačka", mokre:1599, klepac:0, impregnace:999, nano:1999},
+{name:"5místná sedačka", mokre:1899, klepac:0, impregnace:1249, nano:2499},
+{name:"6místná sedačka", mokre:2199, klepac:0, impregnace:1499, nano:2999},
+{name:"7místná sedačka", mokre:2499, klepac:0, impregnace:1749, nano:3499},
+{name:"8místná sedačka", mokre:2799, klepac:0, impregnace:1999, nano:3999},
+{name:"Rozložení sedačky", mokre:349, klepac:0, impregnace:199, nano:499},
+{name:"Polštář malý", mokre:149, klepac:0, impregnace:129, nano:249},
+{name:"Polštář velký", mokre:199, klepac:0, impregnace:199, nano:399},
+{name:"Matrace 1 místo", mokre:399, klepac:0, impregnace:299, nano:599},
+{name:"Čelo postele bez rámu", mokre:749, klepac:0, impregnace:499, nano:999},
+{name:"Čelo postele s rámem", mokre:999, klepac:0, impregnace:749, nano:1499}
+]
+
+};
+
+
+let quantities=[], impregnace=[], nano=[], method=[];
+
+function setCenik(type){
+    cenik = type;
+
+    document.getElementById("btnFF").classList.toggle("active", type==="FF");
+    document.getElementById("btnMK").classList.toggle("active", type==="MK");
+
+    // Aktualizovat ceny u názvů položek
+    servicesData[cenik].forEach((s,i)=>{
+        const nameEl = document.getElementById("name"+i);
+        if(nameEl){
+            nameEl.innerHTML = 
+                `${s.name} ${s.mokre > 0 ? `(${formatPrice(s.mokre)} Kč)` : ""}`;
+        }
+    });
+
+    // Znovu vykreslit doplňky
+    quantities.forEach((q,i)=>{
+        if(q > 0){
+            renderOptions(i);
+        }
+    });
+
+    updateSummary();
+}
+
+function init(){
+const container=document.getElementById("services");
+container.innerHTML="";
+quantities=[]; impregnace=[]; nano=[]; method=[];
+
+servicesData[cenik].forEach((s,i)=>{
+quantities[i]=0; impregnace[i]=false; nano[i]=false; method[i]=0;
+
+container.innerHTML+=`
+<div class="service">
+<div class="service-header">
+<span id="name${i}">
+${s.name} ${s.mokre > 0 ? `(${s.mokre} Kč)` : ""}
+</span>
+<div class="qty-controls">
+<button onclick="changeQty(${i},-1)">-</button>
+${s.name==="Koberec"
+? `<input type="number" min="0" value="0" id="qty${i}" onchange="setQty(${i},this.value)">`
+: `<span id="qty${i}">0</span>`}
+<button onclick="changeQty(${i},1)">+</button>
+</div>
+</div>
+<div id="options${i}"></div>
+</div>
+`;
+});
+}
+
+function changeQty(i,delta){
+quantities[i]=Math.max(0,quantities[i]+delta);
+if(document.getElementById("qty"+i).tagName==="SPAN")
+document.getElementById("qty"+i).innerText=quantities[i];
+else document.getElementById("qty"+i).value=quantities[i];
+document.getElementById("name"+i).classList.toggle("red",quantities[i]>0);
+renderOptions(i);
+updateSummary();
+}
+
+function setQty(i,value){
+quantities[i]=Math.max(0,parseInt(value)||0);
+document.getElementById("name"+i).classList.toggle("red",quantities[i]>0);
+renderOptions(i);
+updateSummary();
+}
+
+function renderOptions(i){
+    const s = servicesData[cenik][i];
+    const container = document.getElementById("options"+i);
+
+    if(quantities[i] === 0){
+        container.innerHTML = "";
+        return;
+    }
+
+    let html = "";
+
+    if(s.name !== "Koberec"){
+
+        html += `
+        <div class="toggle-row">
+            <label>
+                <input type="checkbox"
+                ${impregnace[i] ? "checked" : ""}
+                onchange="impregnace[${i}] = this.checked; updateSummary();">
+                Impregnace (+${s.impregnace} Kč)
+            </label>
+        </div>
+
+        <div class="toggle-row">
+            <label>
+                <input type="checkbox"
+                ${nano[i] ? "checked" : ""}
+                onchange="nano[${i}] = this.checked; updateSummary();">
+                Nanoimpregnace (+${s.nano} Kč)
+            </label>
+        </div>
+        `;
+    }
+
+    container.innerHTML = html;
+}
+
+
+function itemTotal(i){
+const qty=quantities[i]; if(qty===0) return 0;
+const s=servicesData[cenik][i]; let total=0;
+
+if(s.name==="Koberec"){
+if(cenik==="FF"){
+total+=qty<=20?1599:1599+(qty-20)*85;
+}else{
+if(qty<=20) total+=1999;
+else if(qty<=49) total+=qty*99;
+else if(qty<=99) total+=qty*94;
+else if(qty<=199) total+=qty*89;
+else total+=qty*79;
+}
+}else{
+total+=qty*s.mokre;
+if(impregnace[i]) total+=qty*s.impregnace;
+if(nano[i]) total+=qty*s.nano;
+}
+return total;
+}
+
+function updateSummary(){
+
+    let subtotal = 0;
+    let itemsHTML = "";
+
+    quantities.forEach((q,i)=>{
+
+        if(q > 0){
+
+            const s = servicesData[cenik][i];
+            const totalItem = itemTotal(i);
+
+            subtotal += totalItem;
+
+            if(s.name === "Koberec"){
+                itemsHTML += `<div><strong>${s.name}</strong> ${q} m² = ${totalItem} Kč</div>`;
+            }
+            else{
+
+                let base = q * s.mokre;
+                itemsHTML += `<div><strong>${s.name}</strong> × ${q} = ${base} Kč</div>`;
+
+                if(impregnace[i]){
+                    let imp = q * s.impregnace;
+                    itemsHTML += `<div style="margin-left:15px;">↳ Impregnace × ${q} = ${imp} Kč</div>`;
+                }
+
+                if(nano[i]){
+                    let nan = q * s.nano;
+                    itemsHTML += `<div style="margin-left:15px;">↳ Nanoimpregnace × ${q} = ${nan} Kč</div>`;
+                }
+            }
+        }
+    });
+
+
+if(subtotal===0){ document.getElementById("summary").style.display="none"; return; }
+
+document.getElementById("summary").style.display="block";
+document.getElementById("items").innerHTML=itemsHTML;
+
+let delivery=(cenik==="FF"&&subtotal<10000)?400:0;
+let final=subtotal+delivery;
+if(final<minimalniCena) final=minimalniCena;
+
+document.getElementById("totals").innerHTML=`
+<div>Mezisoučet: ${subtotal} Kč</div>
+${delivery>0?`<div>Doprava: ${delivery} Kč</div>`:""}
+${final===minimalniCena&&subtotal+delivery<minimalniCena?`<div style="color:red;">Je aplikovaná minimální cena zakázky 1999 Kč</div>`:""}
+<div style="font-size:18px;font-weight:bold;">Celkem: ${final} Kč</div>
+`;
+}
+function copySummary(){
+
+    let text = "\n";
+    let subtotal = 0;
+
+    quantities.forEach((q,i)=>{
+
+        if(q > 0){
+
+            const s = servicesData[cenik][i];
+            const totalItem = itemTotal(i);
+
+            subtotal += totalItem;
+
+            if(s.name === "Koberec"){
+                text += `${s.name} ${q} m² - ${formatPrice(totalItem)} Kč\n`;
+            }
+            else{
+
+                // základní čištění
+                let base = q * s.mokre;
+                text += `${s.name} × ${q} - ${formatPrice(base)} Kč\n`;
+
+                // impregnace
+                if(impregnace[i]){
+                    let imp = q * s.impregnace;
+                    text += `  - Impregnace × ${q} - ${formatPrice(imp)} Kč\n`;
+                }
+
+                // nano
+                if(nano[i]){
+                    let nan = q * s.nano;
+                    text += `  - Nanoimpregnace × ${q} - ${formatPrice(nan)} Kč\n`;
+                }
+            }
+        }
+    });
+
+let delivery = (cenik==="FF" && subtotal<10000) ? 400 : 0;
+let final = subtotal + delivery;
+
+if(final < minimalniCena) final = minimalniCena;
+
+// Přidat dopravu do textu
+if(delivery > 0){
+    text += `Doprava: ${formatPrice(delivery)} Kč\n`;
+}
+
+text += `\nCelkem: ${formatPrice(final)} Kč`;
+
+
+    fallbackCopy(text);
+}
+
+function fallbackCopy(text){
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textarea);
+    alert("Zkopírováno do schránky ✅");
+}
+
+function resetAll(){ init(); document.getElementById("summary").style.display="none"; }
+
+init();
+</script>
+
+</body>
+</html>
