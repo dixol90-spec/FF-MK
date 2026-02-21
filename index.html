@@ -339,57 +339,46 @@ function copySummary(){
     let text = "\n";
     let subtotal = 0;
 
-quantities.forEach((q,i)=>{
+    quantities.forEach((q,i)=>{
 
-    if(q > 0){
+        if(q > 0){
 
-        const s = servicesData[cenik][i];
-        subtotal += itemTotal(i);
+            const s = servicesData[cenik][i];
+            const totalItem = itemTotal(i);
+            subtotal += totalItem;
 
-        // základní cena (u koberce je mokre = 0, takže použijeme total bez doplňků)
-        let base;
-
-        if(s.name === "Koberec"){
-
-            // vypočítáme základ bez doplňků
-            base = itemTotal(i);
+            // základ bez doplňků
+            let base = totalItem;
             if(impregnace[i]) base -= q * s.impregnace;
             if(nano[i]) base -= q * s.nano;
 
-            itemsHTML += `<div><strong>${s.name}</strong> ${q} m² = ${base} Kč</div>`;
+            if(s.name === "Koberec"){
+                text += `${s.name} ${q} m² - ${formatPrice(base)} Kč\n`;
+            } else {
+                text += `${s.name} × ${q} - ${formatPrice(base)} Kč\n`;
+            }
 
-        }else{
+            if(impregnace[i]){
+                let imp = q * s.impregnace;
+                text += `  - Impregnace × ${q} - ${formatPrice(imp)} Kč\n`;
+            }
 
-            base = q * s.mokre;
-            itemsHTML += `<div><strong>${s.name}</strong> × ${q} = ${base} Kč</div>`;
+            if(nano[i]){
+                let nan = q * s.nano;
+                text += `  - Nanoimpregnace × ${q} - ${formatPrice(nan)} Kč\n`;
+            }
         }
+    });
 
-        // doplňky (pro všechny položky stejně)
-        if(impregnace[i]){
-            let imp = q * s.impregnace;
-            itemsHTML += `<div style="margin-left:15px;">↳ Impregnace × ${q} = ${imp} Kč</div>`;
-        }
+    let delivery = (cenik==="FF" && subtotal<10000) ? 400 : 0;
+    let final = subtotal + delivery;
+    if(final < minimalniCena) final = minimalniCena;
 
-        if(nano[i]){
-            let nan = q * s.nano;
-            itemsHTML += `<div style="margin-left:15px;">↳ Nanoimpregnace × ${q} = ${nan} Kč</div>`;
-        }
+    if(delivery > 0){
+        text += `Doprava: ${formatPrice(delivery)} Kč\n`;
     }
-});
 
-
-let delivery = (cenik==="FF" && subtotal<10000) ? 400 : 0;
-let final = subtotal + delivery;
-
-if(final < minimalniCena) final = minimalniCena;
-
-// Přidat dopravu do textu
-if(delivery > 0){
-    text += `Doprava: ${formatPrice(delivery)} Kč\n`;
-}
-
-text += `\nCelkem: ${formatPrice(final)} Kč`;
-
+    text += `\nCelkem: ${formatPrice(final)} Kč`;
 
     fallbackCopy(text);
 }
